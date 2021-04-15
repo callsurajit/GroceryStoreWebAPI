@@ -65,6 +65,11 @@ namespace GroceryStoreAPI.Controllers
             return NotFound();
         }
 
+        /// <summary>
+        /// Create a new customer to the db file.
+        /// </summary>
+        /// <param name="customer">customer object</param>
+        /// <returns>201 Created response status</returns>
         // POST: api/values
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status201Created)]
@@ -90,24 +95,24 @@ namespace GroceryStoreAPI.Controllers
                 customerList = new List<Customer>();
             }
 
-            using (StreamWriter dbFile = new StreamWriter("database.json")) {
-                customerList.Add(customer);
-
-                var collectionWrapper = new {
-                    customers = customerList
-                };
-                // serialize the object to JSON
-                var output = JsonConvert.SerializeObject(collectionWrapper);
-                // save the JSON string to the file.
-                dbFile.WriteLine(output);
-            }
+            //add the new customer to the list
+            customerList.Add(customer);
+            //save the object to the file.
+            SaveToDBFile(customerList);
 
             return CreatedAtRoute("CustomerById", new { id = customer.Id }, customer);
         }
 
+        /// <summary>
+        /// Modify a customer based on the passed Id
+        /// </summary>
+        /// <param name="id">customer Id</param>
+        /// <param name="customer">customer object</param>
+        /// <returns>404 NotFound if cusomer id doesn't exist otherwise 204 NoContent</returns>
         // PUT: api/values/5
         [HttpPut("{id}")]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<ActionResult> ModifyCustomer(int id, [FromBody] Customer customer)
         {
             // the object cannot be null
@@ -133,24 +138,31 @@ namespace GroceryStoreAPI.Controllers
                     return NotFound();
                 }
 
-                using (StreamWriter dbFile = new StreamWriter("database.json")) {
-                    // map the changes from the passing object
-                    cust.Name = customer.Name;
+                // map the changes from the passing object
+                cust.Name = customer.Name;
+                //save the object to the file.
+                SaveToDBFile(customerList);
 
-                    var collectionWrapper = new
-                    {
-                        customers = customerList
-                    };
-                    // serialize the object to JSON
-                    var output = JsonConvert.SerializeObject(collectionWrapper);
-                    // save the JSON string to the file.
-                    dbFile.WriteLine(output);
-
-                    return NoContent();
-                }
+                return NoContent();                
             }
 
             return NotFound();
+        }
+
+        /// <summary>
+        /// Method to write the changes to the db file.
+        /// </summary>
+        /// <param name="customerList">The customer list with all the changes</param>
+        private void SaveToDBFile(List<Customer> customerList) {
+            using (StreamWriter dbFile = new StreamWriter("database.json")) {                
+                var collectionWrapper = new {
+                    customers = customerList
+                };
+                // serialize the object to JSON
+                var output = JsonConvert.SerializeObject(collectionWrapper);
+                // save the JSON string to the file.
+                dbFile.WriteLine(output);
+            }
         }
     }
 }
