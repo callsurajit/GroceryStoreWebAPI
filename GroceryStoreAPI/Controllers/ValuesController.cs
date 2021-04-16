@@ -3,17 +3,24 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using GroceryStoreAPI.Models;
+using GroceryStoreData;
+using GroceryStoreData.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace GroceryStoreAPI.Controllers
-{
+namespace GroceryStoreAPI.Controllers {
     [Route("api/[controller]")]
     [ApiController]
     public class ValuesController : ControllerBase {
+
+        private readonly IDataService mIDataService;
+
+        public ValuesController(IDataService iDataService) {
+            mIDataService = iDataService;
+        }
+
         /// <summary>
         /// Get a list of all the customers of the store.
         /// </summary>
@@ -23,21 +30,14 @@ namespace GroceryStoreAPI.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<List<Customer>>> GetCustomers() {
-            using (var reader = new StreamReader("database.json")) {                
-                var json = reader.ReadToEnd();
-                // creating a JSON object from the string
-                var jsonToObj = JObject.Parse(json);
-                // converting to a JSON array
-                var array = (JArray)jsonToObj["customers"];
+            // get the list of custoers from the service.
+            var customerList = await mIDataService.GetCustomerData();
 
-                if (array != null) {
-                    var customerList = array.ToObject<List<Customer>>();
-
-                    return customerList.ToList();
-                }
-
-                return NotFound();
+            if(customerList.Count() > 0) {
+                return customerList.ToList();
             }
+
+            return NotFound();           
         }
 
         /// <summary>
@@ -97,8 +97,8 @@ namespace GroceryStoreAPI.Controllers
 
             //add the new customer to the list
             customerList.Add(customer);
-            //save the object to the file.
-            SaveToDBFile(customerList);
+            //save the object to the file using the service.
+            await mIDataService.SaveCustomerData(customerList);
 
             return CreatedAtRoute("CustomerById", new { id = customer.Id }, customer);
         }
@@ -113,8 +113,8 @@ namespace GroceryStoreAPI.Controllers
         [HttpPut("{id}")]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult> ModifyCustomer(int id, [FromBody] Customer customer)
-        {
+        public async Task<ActionResult> ModifyCustomer(int id, 
+            [FromBody] Customer customer) {
             // the object cannot be null
             if (customer == null) {
                 //log the error to any sink
@@ -141,28 +141,12 @@ namespace GroceryStoreAPI.Controllers
                 // map the changes from the passing object
                 cust.Name = customer.Name;
                 //save the object to the file.
-                SaveToDBFile(customerList);
+                await mIDataService.SaveCustomerData(customerList);
 
                 return NoContent();                
             }
 
             return NotFound();
-        }
-
-        /// <summary>
-        /// Method to write the changes to the db file.
-        /// </summary>
-        /// <param name="customerList">The customer list with all the changes</param>
-        private void SaveToDBFile(List<Customer> customerList) {
-            using (StreamWriter dbFile = new StreamWriter("database.json")) {                
-                var collectionWrapper = new {
-                    customers = customerList
-                };
-                // serialize the object to JSON
-                var output = JsonConvert.SerializeObject(collectionWrapper);
-                // save the JSON string to the file.
-                dbFile.WriteLine(output);
-            }
         }
     }
 }
